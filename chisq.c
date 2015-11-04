@@ -3,11 +3,11 @@
    Program:    chisq
    File:       chisq.c
    
-   Version:    V1.4
-   Date:       06.08.03
+   Version:    V1.7
+   Date:       16.06.09
    Function:   Do general chi squared analysis
    
-   Copyright:  (c) Dr. Andrew C. R. Martin, 1994-2003
+   Copyright:  (c) Dr. Andrew C. R. Martin, 1994-2009
    Author:     Dr. Andrew C. R. Martin
    Address:    Biomolecular Structure and Modelling,
                University College London,
@@ -51,6 +51,13 @@
                   in calc of expected values
    V1.4  06.04.03 Uses usual command line parser and added -y for
                   Yates correction
+   V1.5  04.03.08 Added -e flag to allow expecteds to be entered in data
+                  file
+   V1.6  03.11.08 Updated help message to refer to contingency table
+                  dimensions rather than number of items for better
+                  clarity!
+   V1.7  16.06.09 Added -f flag to take expecteds from first data set
+                  observed values
 
 *************************************************************************/
 /* Includes
@@ -75,11 +82,14 @@
 /************************************************************************/
 /* Globals
 */
-BOOL gDisplay = FALSE,
-     gYates   = FALSE;
+BOOL gDisplay      = FALSE,
+     gYates        = FALSE,
+     gGotExpecteds = FALSE,
+     gFirstAsExpecteds = FALSE;
 char gItemList1[MAXITEM][MAXBUFF],
      gItemList2[MAXITEM][MAXBUFF];
 int  gNItem1 = 0, gNItem2 = 0;
+REAL gExpecteds[MAXITEM][MAXITEM];
 
 /************************************************************************/
 /* Prototypes
@@ -115,7 +125,7 @@ int main(int argc, char **argv)
    }
    else
    {
-      if(OpenStdFiles(InFile, OutFile, &in, &out))
+      if(blOpenStdFiles(InFile, OutFile, &in, &out))
       {
          ZeroMatrix(matrix);
    
@@ -164,6 +174,7 @@ void ZeroMatrix(int matrix[MAXITEM][MAXITEM])
    Read data into the matrix
 
    21.06.94 Original    By: ACRM
+   04.03.08 Added reading of expecteds
 */
 BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
 {
@@ -172,6 +183,7 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
    char item1[MAXBUFF], item2[MAXBUFF];
    int  MatPos1,    MatPos2,
         i, j;
+   REAL expect;
 
    for(i=0; i<MAXITEM; i++)
       for(j=0; j<MAXITEM; j++)
@@ -179,7 +191,14 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
 
    while(fgets(buffer,MAXBUFF,in))
    {
-      sscanf(buffer,"%s %s %d",item1,item2,&count);
+      if(gGotExpecteds)
+      {
+         sscanf(buffer,"%s %s %d %lf",item1,item2,&count,&expect);
+      }
+      else
+      {
+         sscanf(buffer,"%s %s %d",item1,item2,&count);
+      }
 
       /* Find the matrix position for the first item                    */
       MatPos1 = (-1);
@@ -225,6 +244,10 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
 
       /* Fill in the value in the matrix                                */
       matrix[MatPos1][MatPos2] = count;
+      if(gGotExpecteds)
+      {
+         gExpecteds[MatPos1][MatPos2] = expect;
+      }
    }
 
    return(TRUE);
@@ -238,6 +261,7 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
    09.02.94 Original    By: ACRM
    16.12.94 Cast values in calculation of expected (was being done as int)
    06.08.03 Added Yates correction
+   03.04.08 Added obtaining expecteds from file
 */
 REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
 {
@@ -279,7 +303,19 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
          if(Tot1[i] && Tot2[j])
          {
             /* Calculate expected value at this cell                    */
-            expected = (REAL)Tot1[i] * (REAL)Tot2[j] / (REAL)NObs;
+            if(gGotExpecteds)
+            {
+               expected = gExpecteds[i][j];
+            }
+            else if(gFirstAsExpecteds)   /* V1.7 16.06.09               */
+            {
+               expected = (REAL)matrix[0][j] * (REAL)Tot1[i] / (REAL)Tot1[0];
+            }
+            else
+            {
+               expected = (REAL)Tot1[i] * (REAL)Tot2[j] / (REAL)NObs;
+            }
+            
             observed = (REAL)matrix[i][j];
 
             if(gDisplay)
@@ -334,17 +370,29 @@ int CalcNDoF(int Tot1[MAXITEM], int Tot2[MAXITEM])
 
    21.06.94 Original    By: ACRM
    06.08.03 V1.4
+   04.03.08 V1.5 - Added -e
+   03.11.08 V1.6 Improved usage message!
 */
 void Usage(void)
 {
-   fprintf(stderr,"ChiSq V1.4 (c) 1994 Andrew C.R. Martin, UCL\n");
-   fprintf(stderr,"Usage: chisq [-d] [-y] [in [out]]n");
+   fprintf(stderr,"ChiSq V1.7 (c) 1994-2009 Andrew C.R. Martin, UCL\n");
+   fprintf(stderr,"Usage: chisq [-d] [-y] [-e] [-f] [in [out]]\n");
    fprintf(stderr,"       -d Display observed and expected values\n");
-   fprintf(stderr,"       -y Apply Yates correction\n\n");
-   fprintf(stderr,"Input file has format: item1 item2 NObs\n");
-   fprintf(stderr,"Max of each item = %d\n\n",MAXITEM);
+   fprintf(stderr,"       -y Apply Yates correction\n");
+   fprintf(stderr,"       -e Expecteds appear in the file\n");
+   fprintf(stderr,"       -f Use first dataset observeds as expecteds\n\n");
+   fprintf(stderr,"Input file has format: item1 item2 NObs [Exp]\n");
+   fprintf(stderr,"Max dimensions of contingency table: %d x %d\n\n",
+           MAXITEM, MAXITEM);
    fprintf(stderr,"The Yates correction is (|O-E| - 0.5) and is often\n");
    fprintf(stderr,"used for 2x2 contingency tables\n\n");
+   fprintf(stderr,"When using -f, the first occurrence of item1 is used \
+to define the dataset\n");
+   fprintf(stderr,"which will provide the expecteds. Thus for all data \
+with this version of\n");
+   fprintf(stderr,"item1, the observed and expecteds will be the same. \
+For other datasets,\n");
+   fprintf(stderr,"the expecteds will be scaled from these values.\n\n");
 }
 
 /************************************************************************/
@@ -387,6 +435,7 @@ void PrintMatrix(int matrix[MAXITEM][MAXITEM])
    Parse the command line
    
    06.08.03 Original    By: ACRM
+   16.06.09 Added -f
 */
 BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile)
 {
@@ -412,6 +461,12 @@ BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile)
             break;
          case 'y':
             gYates = TRUE;
+            break;
+         case 'e':
+            gGotExpecteds = TRUE;
+            break;
+         case 'f':
+            gFirstAsExpecteds = TRUE;
             break;
          default:
             return(FALSE);

@@ -1,0 +1,17 @@
+Simply type
+   make
+in this directory
+
+This will build the chisq program. It will then build the Worden Ware
+Numerics library from:
+   http://www.Brent.Worden.org/products/numericsc.html
+now at:
+   https://www.simtel.net/free/Development-C-programming-language/C-Numerics-Library/53472.html
+and build the chisig program which uses the Numerics library.
+
+If the build fails, try editing
+   Makefile
+   numerics/Makefile
+to use c++ rather than g++ as the compiler
+
+

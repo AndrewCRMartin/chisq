@@ -1,0 +1,20 @@
+CC=g++
+OFILES1 = chisq.o bioplib/OpenStdFiles.o
+OFILES2 = chisig.o
+
+
+all : chisq chisig
+
+
+chisq : $(OFILES1)
+	$(CC) -o $@ $(OFILES1) -lm
+chisig : $(OFILES2)
+	(cd numerics; make)
+	$(CC) -Lnumerics -o $@ $(OFILES2) -lnumerics -lm
+.c.o :
+	$(CC) -c -o $@ $<
+
+clean :
+	\rm -f $(OFILES1) $(OFILES2)
+	(cd numerics; make clean)
+
