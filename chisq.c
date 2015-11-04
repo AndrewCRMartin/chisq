@@ -3,19 +3,15 @@
    Program:    chisq
    File:       chisq.c
    
-   Version:    V1.3
-   Date:       16.12.94
+   Version:    V1.4
+   Date:       06.08.03
    Function:   Do general chi squared analysis
    
-   Copyright:  (c) Dr. Andrew C. R. Martin, 1994
+   Copyright:  (c) Dr. Andrew C. R. Martin, 1994-2003
    Author:     Dr. Andrew C. R. Martin
    Address:    Biomolecular Structure and Modelling,
                University College London,
-   Phone:      HOME: +44 (0)372 275775
-   EMail:      JANET:    martin@uk.ac.ucl.bioc.bsm
-               INTERNET: martin@bsm.bioc.ucl.ac.uk
-                         amartin@scitec.adsp.sub.org
-               UUCP:     ...cbmehq!cbmuk!scitec!amartin
+   EMail:      andrew@bioinf.org.uk
                
 **************************************************************************
 
@@ -53,6 +49,8 @@
    V1.2  07.07.94 Documented
    V1.3  16.12.94 Changed matrix printing field width. Fixed minor bug
                   in calc of expected values
+   V1.4  06.04.03 Uses usual command line parser and added -y for
+                  Yates correction
 
 *************************************************************************/
 /* Includes
@@ -64,18 +62,21 @@
 
 #include "bioplib/MathType.h"
 #include "bioplib/SysDefs.h"
+#include "bioplib/general.h"
+#include "bioplib/macros.h"
 
 /************************************************************************/
 /* Defines
 */
-#define MAXITEM 40
+#define MAXITEM 2000
 #define MAXBUFF 160
 #define SMALL   (0.1e-20)
 
 /************************************************************************/
 /* Globals
 */
-BOOL gDisplay = FALSE;
+BOOL gDisplay = FALSE,
+     gYates   = FALSE;
 char gItemList1[MAXITEM][MAXBUFF],
      gItemList2[MAXITEM][MAXBUFF];
 int  gNItem1 = 0, gNItem2 = 0;
@@ -90,6 +91,7 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF);
 int CalcNDoF(int Tot1[MAXITEM], int Tot2[MAXITEM]);
 void Usage(void);
 void PrintMatrix(int matrix[MAXITEM][MAXITEM]);
+BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile);
 
 /************************************************************************/
 /*>int main(int argc, char **argv)
@@ -100,49 +102,39 @@ void PrintMatrix(int matrix[MAXITEM][MAXITEM]);
 */
 int main(int argc, char **argv)
 {
-   FILE *in;
+   FILE *in = stdin,
+        *out = stdout;
    REAL chisq;
    int  dof;
-   int  matrix[MAXITEM][MAXITEM];
+   static int  matrix[MAXITEM][MAXITEM];
+   char InFile[160], OutFile[160];
 
-   if(argc < 2 || argc > 3)
+   if(!ParseCmdLine(argc, argv, InFile, OutFile))
    {
       Usage();
-      return(1);
    }
-
-   if(argc == 3)
+   else
    {
-      argv++;
-      argc--;
-      if(!strcmp(argv[0],"-d"))
+      if(OpenStdFiles(InFile, OutFile, &in, &out))
       {
-         gDisplay = TRUE;
+         ZeroMatrix(matrix);
+   
+         if(ReadData(in, matrix))
+         {
+            if(gDisplay)
+               PrintMatrix(matrix);
+            
+            chisq = CalcChiSq(matrix, &dof);
+            printf("ChiSq = %f with %d degrees of freedom\n", chisq, dof);
+         }
       }
       else
       {
-         Usage();
+         fprintf(stderr,"Unable to open I/O files\n");
          return(1);
       }
    }
-   
-
-   if((in = fopen(argv[1],"r"))==NULL)
-   {
-      fprintf(stderr,"Unable to open input file: %s\n",argv[1]);
-      return(1);
-   }
-   
-   ZeroMatrix(matrix);
-   
-   if(ReadData(in, matrix))
-   {
-      if(gDisplay)
-         PrintMatrix(matrix);
-      
-      chisq = CalcChiSq(matrix, &dof);
-      printf("ChiSq = %f with %d degrees of freedom\n", chisq, dof);
-   }
+   return(0);
 }
 
 /************************************************************************/
@@ -245,6 +237,7 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
 
    09.02.94 Original    By: ACRM
    16.12.94 Cast values in calculation of expected (was being done as int)
+   06.08.03 Added Yates correction
 */
 REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
 {
@@ -275,6 +268,9 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
       for(i=0; i<MAXITEM; i++)
          Tot2[j] += matrix[i][j];
 
+   /* Calc DoFs                                                         */
+   *NDoF = CalcNDoF(Tot1,Tot2);
+
    /* Step through positions in matrix                                  */
    for(i=0; i<MAXITEM; i++)
    {
@@ -292,15 +288,22 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
             
             /* Add to chisq value                                       */
             if(expected > SMALL)
-               chisq += (observed - expected)*(observed - expected) / 
-                  expected;
+            {
+               if(gYates && (*NDoF == 1))
+               {
+                  chisq += ((ABS(observed - expected)-0.5) *
+                            (ABS(observed - expected)-0.5)) / expected;
+               }
+               else
+               {
+                  chisq += (observed - expected)*(observed - expected) / 
+                     expected;
+               }
+            }
          }
       }
    }
 
-   /* Calc DoFs                                                         */
-   *NDoF = CalcNDoF(Tot1,Tot2);
-   
    return(chisq);
 }
 
@@ -330,14 +333,18 @@ int CalcNDoF(int Tot1[MAXITEM], int Tot2[MAXITEM])
    Prints a usage message
 
    21.06.94 Original    By: ACRM
+   06.08.03 V1.4
 */
 void Usage(void)
 {
-   fprintf(stderr,"ChiSq V1.3 (c) 1994 Andrew C.R. Martin, UCL\n");
-   fprintf(stderr,"Usage: chisq [-d] <in>\n");
+   fprintf(stderr,"ChiSq V1.4 (c) 1994 Andrew C.R. Martin, UCL\n");
+   fprintf(stderr,"Usage: chisq [-d] [-y] [in [out]]n");
    fprintf(stderr,"       -d Display observed and expected values\n");
+   fprintf(stderr,"       -y Apply Yates correction\n\n");
    fprintf(stderr,"Input file has format: item1 item2 NObs\n");
-   fprintf(stderr,"Max of each item = %d\n",MAXITEM);
+   fprintf(stderr,"Max of each item = %d\n\n",MAXITEM);
+   fprintf(stderr,"The Yates correction is (|O-E| - 0.5) and is often\n");
+   fprintf(stderr,"used for 2x2 contingency tables\n\n");
 }
 
 /************************************************************************/
@@ -365,4 +372,80 @@ void PrintMatrix(int matrix[MAXITEM][MAXITEM])
    }
 }
 
+
+/************************************************************************/
+/*>BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile)
+   ---------------------------------------------------------------------
+   Input:   int    argc         Argument count
+            char   **argv       Argument array
+   Output:  char   *infile      Input file (or blank string)
+            char   *outfile     Output file (or blank string)
+   Globals: int    gDisplay
+            int    gYates
+   Returns: BOOL                Success?
+
+   Parse the command line
+   
+   06.08.03 Original    By: ACRM
+*/
+BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile)
+{
+   int minArgs = 0,
+       maxArgs = 2;
+
+   argc--;
+   argv++;
+
+   infile[0] = outfile[0] = '\0';
+   
+   if(argc < minArgs)
+      return(FALSE);
+   
+   while(argc)
+   {
+      if(argv[0][0] == '-')
+      {
+         switch(argv[0][1])
+         {
+         case 'd':
+            gDisplay = TRUE;
+            break;
+         case 'y':
+            gYates = TRUE;
+            break;
+         default:
+            return(FALSE);
+            break;
+         }
+      }
+      else
+      {
+         /* Check that there are correct number of arguments left       */
+         if((argc < minArgs) || (argc > maxArgs))
+            return(FALSE);
+         
+         /* Copy the first to infile                                    */
+         if(argc)
+         {
+            strcpy(infile, argv[0]);
+            argc--;
+            argv++;
+
+            /* If there's another, copy it to outfile                   */
+            if(argc)
+            {
+               strcpy(outfile, argv[0]);
+               argc--;
+               argv++;
+            }
+         }
+         
+         return(TRUE);
+      }
+      argc--;
+      argv++;
+   }
+   
+   return(TRUE);
+}
 
