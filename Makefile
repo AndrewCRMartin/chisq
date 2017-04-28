@@ -3,11 +3,11 @@ LIBSRC = $(HOME)/libsrc
 LIB    = $(HOME)/lib
 INC    = $(HOME)/include
 
-GCC = gcc -L$(LIB) -I$(INC) -Wall -pedantic -ansi
-G++ = g++ -L$(LIB) -I$(INC) -Wall -pedantic -ansi
+GCC = /usr/bin/gcc -L$(LIB) -I$(INC) -Wall -pedantic -ansi
+G++ = /usr/bin/g++ -L$(LIB) -I$(INC) -Wall -pedantic -ansi
 
-EXE = chisq chisig chitab
-OFILES = chisq.o chisig.o chitab.o
+EXE = chisq chisig chitab chisq3
+OFILES = chisq.o chisig.o chitab.o chisq3.o
 
 all : $(EXE)
 

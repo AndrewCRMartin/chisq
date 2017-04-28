@@ -75,7 +75,7 @@
 /************************************************************************/
 /* Defines
 */
-#define MAXITEM 2000
+#define MAXITEM 100
 #define MAXBUFF 160
 #define SMALL   (0.1e-20)
 
@@ -98,7 +98,7 @@ REAL gExpecteds[MAXITEM][MAXITEM][MAXITEM];
 int main(int argc, char **argv);
 void ZeroMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM]);
 BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM][MAXITEM]);
-REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF);
+REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF);
 int CalcNDoF(void);
 void Usage(void);
 void PrintMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM]);
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
 
    09.02.94 Original    By: ACRM
 */
-void ZeroMatrix(int matrix[MAXITEM][MAXITEM]][MAXITEM])
+void ZeroMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM])
 {
    int i,j,k;
 
@@ -321,7 +321,7 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    {
       for(col=0; col<MAXITEM; col++)
       {
-         for(plane=0; plane<MAXITEN; plane++)
+         for(plane=0; plane<MAXITEM; plane++)
          {
             RowTotal[col][plane] += matrix[row][col][plane];
             ColTotal[row][plane] += matrix[row][col][plane];
@@ -412,28 +412,34 @@ void Usage(void)
 }
 
 /************************************************************************/
-/*>void PrintMatrix(int matrix[MAXITEM][MAXITEM])
+/*>void PrintMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM])
    ----------------------------------------------
    Print out the matrix
 
    09.02.94 Original    By: ACRM
    15.12.94 Changed print field from 3 to 5
 */
-void PrintMatrix(int matrix[MAXITEM][MAXITEM])
+void PrintMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM])
 {
-   int i, j, jtot;
+   int i, j, k, jtot;
    
-
-   for(i=0; i<gNItem1; i++)
+   for(k=0; k<gNItem3; k++)
    {
-      jtot = 0;
-      for(j=0; j<gNItem2; j++)
+      printf("Plane %d\n", k);
+      
+      for(i=0; i<gNItem1; i++)
       {
-         printf("%5d ",matrix[i][j]);
-         jtot += matrix[i][j];
+         jtot = 0;
+         for(j=0; j<gNItem2; j++)
+         {
+            printf("%5d ",matrix[i][j][k]);
+            jtot += matrix[i][j][k];
+         }
+         printf(" : %d\n",jtot);
       }
-      printf(" : %d\n",jtot);
+      printf("\n");
    }
+   
 }
 
 
