@@ -1,6 +1,7 @@
 CC=g++
 OFILES1 = chisq.o bioplib/OpenStdFiles.o
 OFILES2 = chisig.o
+OFILES3 = chisq3.o bioplib/OpenStdFiles.o
 
 
 all : chisq chisig
@@ -8,6 +9,8 @@ all : chisq chisig
 
 chisq : $(OFILES1)
 	$(CC) -o $@ $(OFILES1) -lm
+chisq3 : $(OFILES3)
+	$(CC) -o $@ $(OFILES3) -lm
 chisig : $(OFILES2)
 	(cd numerics; make)
 	$(CC) -Lnumerics -o $@ $(OFILES2) -lnumerics -lm
@@ -15,6 +18,6 @@ chisig : $(OFILES2)
 	$(CC) -c -o $@ $<
 
 clean :
-	\rm -f $(OFILES1) $(OFILES2)
+	\rm -f $(OFILES1) $(OFILES2) $(OFILES3)
 	(cd numerics; make clean)
 

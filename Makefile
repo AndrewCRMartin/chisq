@@ -14,6 +14,9 @@ all : $(EXE)
 chisq : chisq.o
 	$(GCC) -o $@ $< -lgen -lm
 
+chisq3 : chisq3.o
+	$(GCC) -o $@ $< -lgen -lm
+
 chisig : chisig.o
 	$(G++) -o $@ $< -lnumerics -lm
 
