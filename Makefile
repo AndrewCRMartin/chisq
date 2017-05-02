@@ -26,6 +26,9 @@ chitab : chitab.o
 chisq.o : chisq.c
 	$(GCC) -c -o $@ $<
 
+chisq3.o : chisq3.c
+	$(GCC) -c -o $@ $<
+
 .c.o :
 	$(G++) -c -o $@ $<
 
