@@ -83,11 +83,13 @@
 use strict;
 
 $_ = <>;
+s/\"//g;
 chomp;
 my @headers = split(/,/);
 
 while(<>)
 {
+    s/\"//g;
     chomp;
     my @data = split(/,/);
     my $nData = scalar(@headers);

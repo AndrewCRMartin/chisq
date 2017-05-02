@@ -1,0 +1,37 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage{url}
+\begin{document}
+First, for the null hypothesis, we assume complete independence
+between the three variables.
+
+If we refer to rows, columns and planes as $r,c,p$, (with dimensions
+$R,C,P$) with each cell containing the observed value $o_{rcp}$ then
+we can define the total, $t$, for a particular row, $r$, as:
+$$t_{r++} = \sum_{c=1}^{C}\sum_{p=1}^{P}o_{rcp}$$
+\noindent(where a subscript of $+$ indicates summation over the
+appropriate index)
+
+Similarly for columns and planes:
+$$t_{+c+} = \sum_{r=1}^{R}\sum_{p=1}^{P}o_{rcp}$$
+$$t_{++p} = \sum_{r=1}^{R}\sum_{c=1}^{C}o_{rcp}$$
+
+The expected value for a given cell, $e_{rcp}$ is then:
+$$e_{rcp} = \frac{t_{r++} \times t_{+c+} \times t_{++p}}{N^2}$$
+\noindent (where $N$ is the total number of observations).
+
+We then calculate the chi-squared value as normal:
+$$\chi^2 = \sum_{r=1}^{R}\sum_{c=1}^{C}\sum_{p=1}^{P}\frac{(o_{rcp} - e_{rcp})^2}{e_{rcp}}$$
+
+The number of degrees of freedom, $D$, is simply:
+$$D = (R-1)(C-1)(P-1)$$
+
+The calculation of the expected values is based on information at:
+\begin{itemize}
+\item\url{web.ntpu.edu.tw/~cflin/Teach/Cate/06CateUEN05ThreeWayPPT.pdf}
+\item\url{onlinecourses.science.psu.edu/stat504/book/export/html/102}
+\item Lienert \& Wolfrun (1980) \emph{Biometrical Journal} {\bfseries
+  22}:159--167
+(\url{onlinelibrary.wiley.com/doi/10.1002/bimj.4710220209/pdf}).
+\end{itemize}
+
+\end{document}

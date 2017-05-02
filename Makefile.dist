@@ -4,7 +4,7 @@ OFILES2 = chisig.o
 OFILES3 = chisq3.o bioplib/OpenStdFiles.o
 
 
-all : chisq chisig
+all : chisq chisig chisq3
 
 
 chisq : $(OFILES1)

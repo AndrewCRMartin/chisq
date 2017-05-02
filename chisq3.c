@@ -103,6 +103,9 @@ int CalcNDoF(void);
 void Usage(void);
 void PrintMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM]);
 BOOL ParseCmdLine(int argc, char **argv, char *infile, char *outfile);
+int CountObservations(int matrix[MAXITEM][MAXITEM][MAXITEM]);
+void CalculateExpecteds(int matrix[MAXITEM][MAXITEM][MAXITEM], int NObs);
+
 
 /************************************************************************/
 /*>int main(int argc, char **argv)
@@ -187,7 +190,7 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM][MAXITEM])
    char item1[MAXBUFF], item2[MAXBUFF], item3[MAXBUFF];
    int  MatPos1,    MatPos2, MatPos3,
       i, j, k;
-   REAL expect;
+   REAL expect = (REAL)0.0;
 
    for(i=0; i<MAXITEM; i++)
       for(j=0; j<MAXITEM; j++)
@@ -280,6 +283,76 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM][MAXITEM])
 }
 
 /************************************************************************/
+int CountObservations(int matrix[MAXITEM][MAXITEM][MAXITEM])
+{
+   int row, col, plane, 
+       NObs = 0;
+
+   /* Find total number of observations                                 */
+   for(row=0; row<MAXITEM; row++)
+   {
+      for(col=0; col<MAXITEM; col++)
+      {
+         for(plane=0; plane<MAXITEM; plane++)
+         {
+            NObs += matrix[row][col][plane];
+         }
+      }
+   }
+
+   return(NObs);
+}
+
+/************************************************************************/
+void CalculateExpecteds(int matrix[MAXITEM][MAXITEM][MAXITEM], int NObs)
+{
+   int RowTotals[MAXITEM],
+       ColTotals[MAXITEM],
+       PlaneTotals[MAXITEM],
+      row, col, plane, i;
+
+   /* Zero the arrays */
+   for(i=0; i<MAXITEM; i++)
+   {
+      RowTotals[i] = ColTotals[i] = PlaneTotals[i] = 0;
+   }
+
+   /* Sum the totals */
+   for(row=0; row<MAXITEM; row++)
+   {
+      for(col=0; col<MAXITEM; col++)
+      {
+         for(plane=0; plane<MAXITEM; plane++)
+         {
+            RowTotals[row]     += matrix[row][col][plane];
+            ColTotals[col]     += matrix[row][col][plane];
+            PlaneTotals[plane] += matrix[row][col][plane];
+         }
+      }
+   }
+
+   /* Now calculate the expecteds */
+   for(row=0; row<MAXITEM; row++)
+   {
+      for(col=0; col<MAXITEM; col++)
+      {
+         for(plane=0; plane<MAXITEM; plane++)
+         {
+            if(RowTotals[row] &&
+               ColTotals[col] &&
+               PlaneTotals[plane])
+            {
+               gExpecteds[row][col][plane] = ((REAL)RowTotals[row] *
+                                              (REAL)ColTotals[col] *
+                                              (REAL)PlaneTotals[plane]) /
+                  ((REAL)NObs * (REAL)NObs); 
+            }
+         }
+      }
+   }
+}
+
+/************************************************************************/
 /*>REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    -------------------------------------------------------
    Actually calculate the Chi squared value
@@ -294,82 +367,40 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    REAL chisq = (REAL)0.0,
         observed,
         expected;
-   int  row, col, plane, NObs = 0,
-      RowTotal[MAXITEM][MAXITEM],
-      ColTotal[MAXITEM][MAXITEM],
-      PlaneTotal[MAXITEM][MAXITEM];
-   
-   /* Find total number of observations                                 */
-   for(row=0; row<MAXITEM; row++)
+   int  row, col, plane, NObs = 0;
+
+   NObs = CountObservations(matrix);
+   if(!gGotExpecteds)
    {
-      for(col=0; col<MAXITEM; col++)
-      {
-         RowTotal[row][col] = ColTotal[row][col] = PlaneTotal[row][col] = 0;
-         for(plane=0; plane<MAXITEM; plane++)
-         {
-            NObs += matrix[row][col][plane];
-         }
-      }
+      CalculateExpecteds(matrix, NObs);
    }
 
    if(gDisplay)
       printf("\nTotal observations: %d\n\n",NObs);
 
-   /* Find the matrix totals                                            */
-   
-   for(row=0; row<MAXITEM; row++)
-   {
-      for(col=0; col<MAXITEM; col++)
-      {
-         for(plane=0; plane<MAXITEM; plane++)
-         {
-            RowTotal[col][plane] += matrix[row][col][plane];
-            ColTotal[row][plane] += matrix[row][col][plane];
-            PlaneTotal[row][col] += matrix[row][col][plane];
-         }
-      }
-   }
-
    /* Calc DoFs                                                         */
    *NDoF = CalcNDoF();
 
    /* Step through positions in matrix                                  */
-   for(row=0; row<MAXITEM; row++)
+   for(row=0; row<gNItem1; row++)
    {
-      for(col=0; col<MAXITEM; col++)
+      for(col=0; col<gNItem2; col++)
       {
-         for(plane=0; plane<MAXITEM; plane++)
+         for(plane=0; plane<gNItem3; plane++)
          {
-            if(RowTotal[col][plane] &&
-               ColTotal[row][plane] &&
-               PlaneTotal[row][col])
+            expected = (REAL)gExpecteds[row][col][plane];
+            observed = (REAL)matrix[row][col][plane];
+            
+            if(gDisplay)
+               printf("%s, %s %s: Obs %5.1f Exp %5.1f\n",
+                      gItemList1[row],gItemList2[col],gItemList3[plane],
+                      observed,expected);
+            
+            /* Add to chisq value                                       */
+            if(expected > SMALL)
             {
-               /* Calculate expected value at this cell                    */
-               if(gGotExpecteds)
-               {
-                  expected = gExpecteds[row][col][plane];
-               }
-               else
-               {
-                  expected = (REAL)RowTotal[col][plane] *
-                             (REAL)ColTotal[row][plane] *
-                             (REAL)PlaneTotal[row][col] /
-                             ((REAL)NObs * (REAL)NObs);
-               }
-            
-               observed = (REAL)matrix[row][col][plane];
-
-               if(gDisplay)
-                  printf("%s, %s %s: Obs %5.1f Exp %5.1f\n",
-                         gItemList1[row],gItemList2[col],gItemList3[plane],
-                         observed,expected);
-            
-               /* Add to chisq value                                       */
-               if(expected > SMALL)
-               {
-                  chisq += (observed - expected)*(observed - expected) / 
-                     expected;
-               }
+               chisq += (observed - expected)*(observed - expected) / 
+                  expected;
             }
          }
       }
@@ -425,7 +456,7 @@ void PrintMatrix(int matrix[MAXITEM][MAXITEM][MAXITEM])
    
    for(k=0; k<gNItem3; k++)
    {
-      printf("Plane %d\n", k);
+      printf("Plane %d\n", k+1);
       
       for(i=0; i<gNItem1; i++)
       {
