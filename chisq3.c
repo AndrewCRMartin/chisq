@@ -3,7 +3,7 @@
    Program:    chisq3
    File:       chisq3.c
    
-   Version:    V1.0
+   Version:    V1.8
    Date:       28.05.17
    Function:   Do general chi squared analysis
    
@@ -44,7 +44,8 @@
 
    Revision History:
    =================
-   V1.0  28.05.17 Original based on ChiSq
+   V1.7  28.05.17 Original based on ChiSq
+   V1.8  03.10.17 Updated warnings
 
 *************************************************************************/
 /* Includes
@@ -354,6 +355,7 @@ void CalculateExpecteds(int matrix[MAXITEM][MAXITEM][MAXITEM], int NObs)
    16.12.94 Cast values in calculation of expected (was being done as int)
    06.08.03 Added Yates correction
    03.04.08 Added obtaining expecteds from file
+   03.10.17 Added warnings
 */
 REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
 {
@@ -394,7 +396,7 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
             /* Add to chisq value                                       */
             if(expected > SMALL)
             {
-               if(expected < (REAL)5)
+               if(expected < (REAL)5.0)
                {
                   NSmall++;
                }
@@ -445,7 +447,7 @@ int CalcNDoF(void)
 */
 void Usage(void)
 {
-   fprintf(stderr,"ChiSq3 V1.0 (c) 2017 Andrew C.R. Martin, UCL\n");
+   fprintf(stderr,"ChiSq3 V1.8 (c) 2017 Andrew C.R. Martin, UCL\n");
    fprintf(stderr,"Usage: chisq3 [-d] [-f] [-e] [in [out]]\n");
    fprintf(stderr,"       -d Display observed and expected values\n");
    fprintf(stderr,"       -f Use first dataset observeds as expecteds\n");

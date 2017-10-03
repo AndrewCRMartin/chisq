@@ -3,11 +3,11 @@
    Program:    chisq
    File:       chisq.c
    
-   Version:    V1.7
-   Date:       16.06.09
+   Version:    V1.8
+   Date:       03.10.17
    Function:   Do general chi squared analysis
    
-   Copyright:  (c) Dr. Andrew C. R. Martin, 1994-2009
+   Copyright:  (c) Dr. Andrew C. R. Martin, 1994-2017
    Author:     Dr. Andrew C. R. Martin
    Address:    Biomolecular Structure and Modelling,
                University College London,
@@ -58,6 +58,7 @@
                   clarity!
    V1.7  16.06.09 Added -f flag to take expecteds from first data set
                   observed values
+   V1.8  03.10.17 Added warning information
 
 *************************************************************************/
 /* Includes
@@ -262,13 +263,14 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM])
    16.12.94 Cast values in calculation of expected (was being done as int)
    06.08.03 Added Yates correction
    03.04.08 Added obtaining expecteds from file
+   03.10.17 Added warnings
 */
 REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
 {
    REAL chisq = (REAL)0.0,
         observed,
         expected;
-   int  i, j, NObs = 0,
+   int  i, j, NObs = 0, NCells = 0, NSmall = 0, NZero = 0,
         Tot1[MAXITEM], Tot2[MAXITEM];
    
    /* Find total number of observations                                 */
@@ -318,6 +320,8 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
             
             observed = (REAL)matrix[i][j];
 
+            NCells++;
+
             if(gDisplay)
                printf("%s, %s: Obs %5.1f Exp %5.1f\n",
                       gItemList1[i],gItemList2[j],observed,expected);
@@ -325,6 +329,11 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
             /* Add to chisq value                                       */
             if(expected > SMALL)
             {
+               if(expected < (REAL)5.0)
+               {
+                  NSmall++;
+               }
+
                if(gYates && (*NDoF == 1))
                {
                   chisq += ((ABS(observed - expected)-0.5) *
@@ -336,8 +345,23 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM], int *NDoF)
                      expected;
                }
             }
+            else
+            {
+               NZero++;
+            }
          }
       }
+   }
+
+   if(NZero)
+   {
+      fprintf(stderr,"Warning: %d expecteds were < %g and not included\n",
+              NZero, SMALL);
+   }
+               
+   if ((NSmall / (REAL)NCells) > 0.25)
+   {
+      fprintf(stderr,"Warning: More than 25%% of expecteds were < 5\n");
    }
 
    return(chisq);
@@ -372,10 +396,11 @@ int CalcNDoF(int Tot1[MAXITEM], int Tot2[MAXITEM])
    06.08.03 V1.4
    04.03.08 V1.5 - Added -e
    03.11.08 V1.6 Improved usage message!
+   03.10.17 V1.8
 */
 void Usage(void)
 {
-   fprintf(stderr,"ChiSq V1.7 (c) 1994-2009 Andrew C.R. Martin, UCL\n");
+   fprintf(stderr,"ChiSq V1.8 (c) 1994-2009 Andrew C.R. Martin, UCL\n");
    fprintf(stderr,"Usage: chisq [-d] [-y] [-e] [-f] [in [out]]\n");
    fprintf(stderr,"       -d Display observed and expected values\n");
    fprintf(stderr,"       -y Apply Yates correction\n");
