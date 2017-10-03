@@ -360,10 +360,7 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    REAL chisq = (REAL)0.0,
         observed,
         expected;
-   int  row, col, plane, NObs = 0, NCells = 0, NSmall = 0;
-   BOOL warnedZero  = FALSE,
-        warnedSmall = FALSE;
-   
+   int  row, col, plane, NObs = 0, NCells = 0, NSmall = 0, NZero = 0;
 
    NObs = CountObservations(matrix);
    if(!gGotExpecteds)
@@ -399,19 +396,7 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
             {
                if(expected < (REAL)5)
                {
-                  REAL fract;
-                  
                   NSmall++;
-                  fract = NSmall / (REAL)NCells;
-                  fprintf(stderr,"%f\n", fract);
-                  
-
-                  if (!warnedSmall && ((NSmall / NCells) > 0.25))
-                  {
-                     fprintf(stderr,"Warning: More than 25%% of expecteds \
-were < 5\n");
-                     warnedSmall = TRUE;
-                  }
                }
                
                chisq += (observed - expected)*(observed - expected) / 
@@ -419,17 +404,21 @@ were < 5\n");
             }
             else
             {
-               if(!warnedZero)
-               {
-                  fprintf(stderr,"Warning: Some expecteds were < %g \
-and not included\n", SMALL);
-                  warnedZero = TRUE;
-               }
-               
+               NZero++;
             }
-            
          }
       }
+   }
+
+   if(NZero)
+   {
+      fprintf(stderr,"Warning: %d expecteds were < %g and not included\n",
+              NZero, SMALL);
+   }
+               
+   if ((NSmall / (REAL)NCells) > 0.25)
+   {
+      fprintf(stderr,"Warning: More than 25%% of expecteds were < 5\n");
    }
 
    return(chisq);
