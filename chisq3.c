@@ -44,20 +44,7 @@
 
    Revision History:
    =================
-   V1.0  09.02.94 Original specialised version
-   V1.1  21.06.94 Original
-   V1.2  07.07.94 Documented
-   V1.3  16.12.94 Changed matrix printing field width. Fixed minor bug
-                  in calc of expected values
-   V1.4  06.04.03 Uses usual command line parser and added -y for
-                  Yates correction
-   V1.5  04.03.08 Added -e flag to allow expecteds to be entered in data
-                  file
-   V1.6  03.11.08 Updated help message to refer to contingency table
-                  dimensions rather than number of items for better
-                  clarity!
-   V1.7  16.06.09 Added -f flag to take expecteds from first data set
-                  observed values
+   V1.0  28.05.17 Original based on ChiSq
 
 *************************************************************************/
 /* Includes
@@ -199,13 +186,19 @@ BOOL ReadData(FILE *in, int matrix[MAXITEM][MAXITEM][MAXITEM])
 
    while(fgets(buffer,MAXBUFF,in))
    {
+      TERMINATE(buffer);
+      
       if(gGotExpecteds)
       {
-         sscanf(buffer,"%s %s %s %d %lf",item1,item2,item3,&count,&expect);
+         REAL countDouble;
+         sscanf(buffer,"%s%s%s%lf%lf",item1,item2,item3,&countDouble,&expect);
+         count = (int)countDouble;
       }
       else
       {
-         sscanf(buffer,"%s %s %s %d",item1,item2,item3,&count);
+         REAL countDouble;
+         sscanf(buffer,"%s %s %s %lf",item1,item2,item3,&countDouble);
+         count = (int)countDouble;
       }
 
       /* Find the matrix position for the first item                    */
@@ -367,7 +360,10 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    REAL chisq = (REAL)0.0,
         observed,
         expected;
-   int  row, col, plane, NObs = 0;
+   int  row, col, plane, NObs = 0, NCells = 0, NSmall = 0;
+   BOOL warnedZero  = FALSE,
+        warnedSmall = FALSE;
+   
 
    NObs = CountObservations(matrix);
    if(!gGotExpecteds)
@@ -381,6 +377,8 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
    /* Calc DoFs                                                         */
    *NDoF = CalcNDoF();
 
+   NCells = gNItem1 * gNItem2 * gNItem3;
+
    /* Step through positions in matrix                                  */
    for(row=0; row<gNItem1; row++)
    {
@@ -392,16 +390,44 @@ REAL CalcChiSq(int matrix[MAXITEM][MAXITEM][MAXITEM], int *NDoF)
             observed = (REAL)matrix[row][col][plane];
             
             if(gDisplay)
-               printf("%s, %s %s: Obs %5.1f Exp %5.1f\n",
+               printf("%s %s %s: Obs %5.1f Exp %5.1f\n",
                       gItemList1[row],gItemList2[col],gItemList3[plane],
                       observed,expected);
             
             /* Add to chisq value                                       */
             if(expected > SMALL)
             {
+               if(expected < (REAL)5)
+               {
+                  REAL fract;
+                  
+                  NSmall++;
+                  fract = NSmall / (REAL)NCells;
+                  fprintf(stderr,"%f\n", fract);
+                  
+
+                  if (!warnedSmall && ((NSmall / NCells) > 0.25))
+                  {
+                     fprintf(stderr,"Warning: More than 25%% of expecteds \
+were < 5\n");
+                     warnedSmall = TRUE;
+                  }
+               }
+               
                chisq += (observed - expected)*(observed - expected) / 
                   expected;
             }
+            else
+            {
+               if(!warnedZero)
+               {
+                  fprintf(stderr,"Warning: Some expecteds were < %g \
+and not included\n", SMALL);
+                  warnedZero = TRUE;
+               }
+               
+            }
+            
          }
       }
    }
@@ -426,18 +452,16 @@ int CalcNDoF(void)
    ----------------
    Prints a usage message
 
-   21.06.94 Original    By: ACRM
-   06.08.03 V1.4
-   04.03.08 V1.5 - Added -e
-   03.11.08 V1.6 Improved usage message!
+   28.05.17 Original    By: ACRM
 */
 void Usage(void)
 {
-   fprintf(stderr,"ChiSq V1.7 (c) 1994-2009 Andrew C.R. Martin, UCL\n");
-   fprintf(stderr,"Usage: chisq3 [-d] [-f] [in [out]]\n");
+   fprintf(stderr,"ChiSq3 V1.0 (c) 2017 Andrew C.R. Martin, UCL\n");
+   fprintf(stderr,"Usage: chisq3 [-d] [-f] [-e] [in [out]]\n");
    fprintf(stderr,"       -d Display observed and expected values\n");
-   fprintf(stderr,"       -f Use first dataset observeds as expecteds\n\n");
-   fprintf(stderr,"Input file has format: item1 item2 NObs [Exp]\n");
+   fprintf(stderr,"       -f Use first dataset observeds as expecteds\n");
+   fprintf(stderr,"       -e Expected values appear in 5th column\n");
+   fprintf(stderr,"\nInput file has format: item1 item2 item3 NObs [Exp]\n");
    fprintf(stderr,"Max dimensions of contingency table: %d x %d x %d\n\n",
            MAXITEM, MAXITEM, MAXITEM);
 }
